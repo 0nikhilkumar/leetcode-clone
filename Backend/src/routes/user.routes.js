@@ -11,4 +11,14 @@ router.route("/admin/register").post(adminMiddleware, adminRegister);
 router.route("/deleteProfile").delete(authMiddleware, deleteProfile);
 router.route("/profile").get(authMiddleware, userProfile);
 
+router.route("/check-auth").get(authMiddleware, (req, res) => {
+    const reply = {
+        email: req.user.email,
+        firstName: req.user.firstName,
+        _id: req.user._id,
+        role: req.user.role
+    };
+    res.status(200).json({ user: reply, message: "Valid User" });
+});
+
 module.exports = router;

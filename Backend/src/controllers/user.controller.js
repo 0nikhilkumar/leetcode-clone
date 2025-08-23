@@ -17,13 +17,19 @@ const register = async (req, res) => {
         req.body.password = hashedPassword;
         req.body.role = "user";
         req.body.username = req.body.email.split("@")[0];
-        const newUser = new User(req.body);
-        await newUser.save();
+        const newUser = await User.create(req.body);
 
         const token = jwt.sign({ _id: newUser._id, email: req.body.email, role: "user" }, process.env.JWT_SECRET, { expiresIn: "1h" });
         res.cookie("token", token, {maxAge: 60*60*1000});
 
-        res.status(201).json({ message: "User registered successfully" });
+        const reply = {
+            _id: newUser._id,
+            firstName: newUser.firstName,
+            email: newUser.email,
+            role: newUser.role
+        };
+
+        res.status(201).json({ user: reply, message: "User registered successfully" });
     } catch (error) {
         console.error("Error during registration:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -47,10 +53,17 @@ const login = async (req, res) => {
             return res.status(400).json({ message: "Invalid Credentials" });
         }
 
+        const reply = {
+            _id: existsUser._id,
+            firstName: existsUser.firstName,
+            email: existsUser.email,
+            role: existsUser.role
+        };
+
         const token = jwt.sign({_id: existsUser._id, email, role: existsUser.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
         res.cookie("token", token, { maxAge: 60 * 60 * 1000 });
 
-        res.status(200).send("Login successful");
+        res.status(200).json({ user: reply, message: "Login successful" });
     } catch (error) {
         console.error("Error during login:", error);
         res.status(500).json({ message: "Internal server error" });
