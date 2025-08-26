@@ -54,6 +54,8 @@ function HomePage() {
 
   const dispatch = useDispatch();
   const { problems: allProblem2, loading } = useSelector(state => state.problems);
+  const { user } = useSelector(state => state.auth);
+  console.log(user);
 
   const allTags = useMemo(() => {
     const tagsSet = new Set();
@@ -217,7 +219,7 @@ function HomePage() {
                       filteredProblems.map((problem, index) => (
                         <tr key={problem._id || problem.id} className="hover">
                           <td className="p-4 font-medium">{index + 1}</td>
-                          <td className="p-4 font-semibold text-primary-content hover:text-primary transition-colors cursor-pointer" onClick={()=> navigate(`/problem/${problem._id}`)}>
+                          <td className="p-4 font-semibold text-primary-content hover:text-primary transition-colors cursor-pointer" onClick={()=> user.role === 'admin' ? null : navigate(`/problem/${problem._id}`)}>
                             {problem.title}
                           </td>
                           <td className="p-4">

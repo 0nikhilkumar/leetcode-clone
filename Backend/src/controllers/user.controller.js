@@ -20,7 +20,7 @@ const register = async (req, res) => {
         const newUser = await User.create(req.body);
 
         const token = jwt.sign({ _id: newUser._id, email: req.body.email, role: "user" }, process.env.JWT_SECRET, { expiresIn: "1h" });
-        res.cookie("token", token, {maxAge: 60*60*1000});
+        res.cookie("token", token, { maxAge: 60 * 60 * 1000, httpOnly: true, secure: true, sameSite: 'none' });
 
         const reply = {
             _id: newUser._id,
