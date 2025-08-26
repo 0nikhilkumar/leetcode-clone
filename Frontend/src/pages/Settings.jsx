@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { EyeIcon } from '../components/Icons'; // Adjust path as needed
-import { userProfile, deleteProfile } from '../store/authSlice'; // Adjust path to your user slice
+import { userProfile, deleteProfile } from '../store/authSlice'; // Make sure to import updateProfile action
 
-// --- Delete Account Modal Component ---
+// --- Delete Account Modal Component (No Changes Needed) ---
 const DeleteAccountModal = ({ isOpen, onClose, onConfirm, loading }) => {
     const [confirmationText, setConfirmationText] = useState('');
     const isConfirmed = confirmationText === 'DELETE';
@@ -52,27 +52,32 @@ const DeleteAccountModal = ({ isOpen, onClose, onConfirm, loading }) => {
 
 // --- Main Settings Page Component ---
 
-const SettingsPage = ({ setCurrentPage }) => {
+const SettingsPage = () => {
     const dispatch = useDispatch();
     const { profile, loading, error } = useSelector(state => state.auth);
-    console.log(profile);
 
-    // State for which tab is active
     const [activeTab, setActiveTab] = useState('profile');
     const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
 
-    // State for form inputs, initialized with empty values
     const [formData, setFormData] = useState({
-        username: '', realName: '', email: '', bio: '',
+        username: '', firstName: '', lastName: '', email: '', bio: '',
         github: '', linkedin: '', website: ''
     });
     const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
 
-    // State for password visibility
     const [showCurrentPass, setShowCurrentPass] = useState(false);
     const [showNewPass, setShowNewPass] = useState(false);
 
-    // Populate form with user data from Redux store when it's available
+    // --- CHANGE: Fetch user profile data when the component loads ---
+    useEffect(() => {
+        // If the profile data isn't already loaded, fetch it.
+        if (!profile) {
+            dispatch(userProfile());
+        }
+    }, [dispatch, profile]);
+
+
+    // This effect correctly populates the form once the profile data is available.
     useEffect(() => {
         if (profile) {
             setFormData({
@@ -98,20 +103,31 @@ const SettingsPage = ({ setCurrentPage }) => {
         setPasswords(prev => ({ ...prev, [name]: value }));
     };
 
-
     const handleSubmit = (e) => {
         e.preventDefault();
-        const payload = { ...formData };
-        // Only include passwords if the new password field is filled
+        // --- CHANGE: Dispatch an update action (assuming you have one) ---
+        const updateData = { ...formData };
         if (passwords.new && passwords.new === passwords.confirm) {
-            payload.password = passwords.new;
-            payload.currentPassword = passwords.current;
+            updateData.password = passwords.new;
+            updateData.currentPassword = passwords.current;
         }
+        // dispatch(updateProfile(updateData)); // Example: dispatch your update action
+        console.log("Submitting data:", updateData);
     };
 
     const handleDeleteAccount = () => {
         dispatch(deleteProfile());
+        setDeleteModalOpen(false);
     };
+    
+    // Show a loading spinner while fetching initial profile data
+    if (loading && !profile) {
+        return (
+            <div className="flex justify-center items-center min-h-screen bg-base-100">
+                <span className="loading loading-lg loading-spinner text-primary"></span>
+            </div>
+        );
+    }
 
     return (
         <div data-theme="night" className="p-4 sm:p-6 lg:p-8 bg-base-100 min-h-screen">
@@ -208,7 +224,7 @@ const SettingsPage = ({ setCurrentPage }) => {
                         </div>
 
                         <div className="card-actions justify-end mt-6 border-t border-base-300 pt-6">
-                            <button type="button" onClick={() => setCurrentPage('profile')} className="btn btn-ghost" disabled={loading}>Cancel</button>
+                            <button type="button" className="btn btn-ghost" disabled={loading}>Cancel</button>
                             <button type="submit" className="btn btn-primary" disabled={loading}>
                                 {loading && <span className="loading loading-spinner"></span>}
                                 Save Changes

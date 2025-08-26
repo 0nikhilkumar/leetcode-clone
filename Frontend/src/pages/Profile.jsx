@@ -1,41 +1,35 @@
 import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { Link, useNavigate } from 'react-router-dom'; // Correct import for modern React Router
 import { Icon, ICONS } from '../components/Icons'; // Adjust path as needed
 import { getAllProblemSolvedByUser } from '../store/problemSlice'; // Adjust path to your slice
-import { Link } from 'react-router';
-
-// --- Mock User Info (can be replaced with auth state) ---
-const userInfo = {
-    username: "dev_coder",
-    rank: "10,432",
-    avatarUrl: "https://placehold.co/100x100/333/FFF?text=D",
-    links: {
-        github: "https://github.com/username",
-        linkedin: "https://linkedin.com/in/username",
-        website: "https://portfolio.dev"
-    },
-};
+import { userProfile } from '../store/authSlice'; // Adjust path to your slice
 
 // --- Sub-Components ---
+// These components are self-contained and do not need changes.
 
-const ProfileHeader = ({ user }) => (
-    <div className="flex flex-col sm:flex-row items-center gap-6">
-        <div className="avatar">
-            <div className="w-24 rounded-lg shadow-lg">
-                <img src={user.avatarUrl} alt={`${user.username}'s avatar`} />
+const ProfileHeader = ({ user }) => {
+    const displayName = user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.username;
+
+    return (
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="avatar">
+                <div className="w-24 rounded-lg shadow-lg flex justify-center items-center bg-gray-800 text-primary-content text-4xl font-bold">
+                    <h1>{user?.username?.charAt(0).toUpperCase()}</h1>
+                </div>
+            </div>
+            <div>
+                <h1 className="text-3xl font-bold text-base-content">{displayName}</h1>
+                <p className="text-base-content/70">@{user?.username}</p>
+                <div className="flex items-center gap-4 mt-2">
+                    {user?.github && <a href={user.github} target="_blank" rel="noopener noreferrer" className="text-base-content/70 hover:text-primary transition-colors"><Icon path={ICONS.github} /></a>}
+                    {user?.linkedin && <a href={user.linkedin} target="_blank" rel="noopener noreferrer" className="text-base-content/70 hover:text-primary transition-colors"><Icon path={ICONS.linkedin} /></a>}
+                    {user?.website && <a href={user.website} target="_blank" rel="noopener noreferrer" className="text-base-content/70 hover:text-primary transition-colors"><Icon path={ICONS.leetcode} /></a>}
+                </div>
             </div>
         </div>
-        <div>
-            <h1 className="text-3xl font-bold text-base-content">{user.username}</h1>
-            <p className="text-base-content/70">Rank {user.rank}</p>
-            <div className="flex items-center gap-4 mt-2">
-                <a href={user.links.github} target="_blank" rel="noopener noreferrer" className="text-base-content/70 hover:text-primary transition-colors"><Icon path={ICONS.github} /></a>
-                <a href={user.links.linkedin} target="_blank" rel="noopener noreferrer" className="text-base-content/70 hover:text-primary transition-colors"><Icon path={ICONS.linkedin} /></a>
-                <a href={user.links.website} target="_blank" rel="noopener noreferrer" className="text-base-content/70 hover:text-primary transition-colors"><Icon path={ICONS.leetcode} /></a>
-            </div>
-        </div>
-    </div>
-);
+    );
+};
 
 const StatPill = ({ label, value, colorClass }) => (
     <div className="flex justify-between items-center text-sm">
@@ -63,10 +57,8 @@ const SolvedStats = ({ solvedStats }) => {
                 <div className="space-y-2">
                     <StatPill label="Easy" value={`${easy.count} / ${easy.total}`} colorClass="text-success" />
                     <progress className="progress progress-success w-full" value={easy.count} max={easy.total || 1}></progress>
-                    
                     <StatPill label="Medium" value={`${medium.count} / ${medium.total}`} colorClass="text-warning" />
                     <progress className="progress progress-warning w-full" value={medium.count} max={medium.total || 1}></progress>
-
                     <StatPill label="Hard" value={`${hard.count} / ${hard.total}`} colorClass="text-error" />
                     <progress className="progress progress-error w-full" value={hard.count} max={hard.total || 1}></progress>
                 </div>
@@ -122,35 +114,41 @@ const SolvedProblemsList = ({ problems }) => (
     </div>
 );
 
-const StatCard = ({ title, value }) => (
-    <div className="card bg-base-200 shadow-md">
-        <div className="card-body text-center">
-            <h3 className="text-lg font-semibold">{title}</h3>
-            <p className="text-4xl font-bold text-primary">{value}</p>
-        </div>
-    </div>
-);
 
-// --- Main Profile Page Component ---
+// --- Main Profile Page Component (Corrected) ---
 
-const LeetCodeProfilePage = ({ setCurrentPage }) => {
+const ProfilePage = () => {
     const dispatch = useDispatch();
-    const { problemsSolvedByUser, loading } = useSelector((state) => state.problems);
+    const navigate = useNavigate();
+
+    // Select specific state needed for logic to avoid unnecessary re-renders
+    const { profile, isAuthenticated, loading: authLoading } = useSelector(state => state.auth);
+    const { problemsSolvedByUser, loading: problemsLoading } = useSelector((state) => state.problems);
 
     useEffect(() => {
+        // Fetch user data when the component mounts
+        dispatch(userProfile());
         dispatch(getAllProblemSolvedByUser());
     }, [dispatch]);
 
-    // Calculate stats for difficulty levels
+    // This effect handles redirection if the user is not authenticated
+    useEffect(() => {
+        // We wait until the initial authentication check is complete (!authLoading)
+        // If it's done and the user is not authenticated, redirect to login
+        if (!authLoading && !isAuthenticated) {
+            navigate('/login'); // Adjust '/login' to your actual login page route
+        }
+    }, [isAuthenticated, authLoading, navigate]);
+
+    // Memoization for stats and skills (no changes needed here)
     const solvedStats = useMemo(() => {
         const stats = {
-            easy: { count: 0, total: 200 }, // Assuming total problems are static for now
+            easy: { count: 0, total: 200 },
             medium: { count: 0, total: 400 },
             hard: { count: 0, total: 150 },
             totalSolved: 0,
             totalProblems: 750
         };
-        
         if (problemsSolvedByUser) {
             problemsSolvedByUser.forEach(problem => {
                 if (problem.difficulty && stats[problem.difficulty]) {
@@ -159,35 +157,32 @@ const LeetCodeProfilePage = ({ setCurrentPage }) => {
             });
             stats.totalSolved = problemsSolvedByUser.length;
         }
-        
         return stats;
     }, [problemsSolvedByUser]);
-
-    // Calculate skills from problem tags
+    
     const skills = useMemo(() => {
         if (!problemsSolvedByUser) return [];
-
-        // In a real app, this would come from an API
         const tagTotals = { 'array': 100, 'string': 80, 'hash table': 60, 'dynamic programming': 70, 'tree': 90, 'graph': 65 };
         const tagCounts = {};
-
         problemsSolvedByUser.forEach(problem => {
             problem.tags?.forEach(tag => {
                 tagCounts[tag] = (tagCounts[tag] || 0) + 1;
             });
         });
-
         return Object.entries(tagCounts)
             .map(([tagName, solvedCount]) => ({
                 name: tagName.charAt(0).toUpperCase() + tagName.slice(1),
                 solved: solvedCount,
-                total: tagTotals[tagName.toLowerCase()] || 50, // Default total if not in map
+                total: tagTotals[tagName.toLowerCase()] || 50,
             }))
-            .sort((a, b) => b.solved - a.solved); // Sort by most solved
-
+            .sort((a, b) => b.solved - a.solved);
     }, [problemsSolvedByUser]);
 
-    if (loading) {
+    // Combine loading states from both slices
+    const isLoading = authLoading || problemsLoading;
+
+    // Show a full-page loading spinner while data is being fetched
+    if (isLoading) {
         return (
             <div className="flex justify-center items-center min-h-screen bg-base-100">
                 <span className="loading loading-lg loading-spinner text-primary"></span>
@@ -195,32 +190,33 @@ const LeetCodeProfilePage = ({ setCurrentPage }) => {
         );
     }
 
+    // If loading is done but there's no profile (e.g., due to auth failure and redirection),
+    // render nothing to prevent a flash of an empty/broken page.
+    if (!profile) {
+        return null;
+    }
+
+    // Render the full profile page once all checks have passed and data is available
     return (
         <div data-theme="night" className="p-4 sm:p-6 lg:p-8 bg-base-100 min-h-screen">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-8">
-                    <ProfileHeader user={userInfo} />
+                    <ProfileHeader user={profile} />
                 </div>
-
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column */}
                     <div className="lg:col-span-1 space-y-6">
                         <SolvedStats solvedStats={solvedStats} />
-                        <StatCard title="Total Solved" value={solvedStats.totalSolved} />
                     </div>
-
                     {/* Right Column */}
                     <div className="lg:col-span-2 space-y-6">
                         <SkillsSection skills={skills} />
                         <SolvedProblemsList problems={problemsSolvedByUser} />
                     </div>
                 </div>
-                 <div className="text-center mt-8">
-                    <button onClick={() => setCurrentPage('home')} className="btn btn-ghost">Back to Problems</button>
-                </div>
             </div>
         </div>
     );
 };
 
-export default LeetCodeProfilePage;
+export default ProfilePage;

@@ -56,7 +56,7 @@ export const logout = createAsyncThunk("auth/logout", async (_, { rejectWithValu
 export const userProfile = createAsyncThunk("auth/profile", async (_, { rejectWithValue }) => {
     try {
         const response = await axiosClient.get("/users/profile");
-        return response.data.user;
+        return response.data;
     } catch (error) {
         return rejectWithValue({
             message: error.message,
@@ -168,12 +168,14 @@ const authSlice = createSlice({
             .addCase(userProfile.fulfilled, (state, action) => {
                 state.loading = false;
                 state.profile = action.payload;
-                state.isAuthenticated = !!action.payload;
             })
+            // Inside your authSlice.js -> extraReducers
+
             .addCase(userProfile.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload?.message || 'Something went wrong';
                 state.isAuthenticated = false;
+                state.user = null;
                 state.profile = null;
             })
 

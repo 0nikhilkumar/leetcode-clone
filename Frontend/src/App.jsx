@@ -33,7 +33,7 @@ const App = () => {
         <Route path='/' element={isAuthenticated ? <HomePage /> : <Navigate to="/login" />} />
         <Route path='/login' element={isAuthenticated ? <Navigate to="/" /> : <SignIn />} />
         <Route path='/signup' element={isAuthenticated ? <Navigate to="/" /> : <SignUp />} />
-        <Route path='/profile' element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" />} />
+        <Route path='/profile' element={isAuthenticated ? <div className='flex justify-center items-center min-h-screen'>This Page is under construction</div> : <Navigate to="/login" />} />
         <Route path='/settings' element={isAuthenticated ? <SettingsPage /> : <Navigate to="/login" />} />
         <Route path='/problem/:id' element={isAuthenticated ? <ProblemPage /> : <Navigate to="/login" />} />
         <Route path='/admin' element={isAuthenticated && user?.role === 'admin' ? <AdminPage /> : <Navigate to="/" />} />

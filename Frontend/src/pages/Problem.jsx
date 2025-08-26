@@ -1,16 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react'; // Import useMemo
 import { Allotment } from "allotment";
 import "allotment/dist/style.css";
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams } from 'react-router';
 
-// Import your actions from your problemSlice file
-import { getUserProblemById, runCode, submitCode } from '../store/problemSlice'; // Adjust this import path as needed
-
-// Import the new components
+// Import your components and actions
+import { getUserProblemById, runCode, submitCode } from '../store/problemSlice';
+import { saveEditorState, loadEditorState } from '../components/utils';
 import ProblemDescription from '../components/ProblemDescription';
 import CodeEditor from '../components/CodeEditor';
-import { saveEditorState, loadEditorState } from '../components/utils';
+
+// --- NEW HELPER FUNCTION ---
+// This function maps language names from your backend to what Monaco Editor expects.
+const getMonacoLanguage = (lang) => {
+    if (!lang) return '';
+    const lowerLang = lang.toLowerCase();
+
+    switch (lowerLang) {
+        case 'c++':
+        case 'cplusplus':
+            return 'cpp'; // Monaco's identifier for C++
+        case 'python':
+            return 'python';
+        case 'java':
+            return 'java';
+        case 'javascript':
+            return 'javascript';
+        // Add any other mappings if needed
+        default:
+            return lowerLang; // Fallback for other languages
+    }
+};
+
 
 const ProblemPage = () => {
     const dispatch = useDispatch();
@@ -24,50 +45,43 @@ const ProblemPage = () => {
     const [activeTab, setActiveTab] = useState('description');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const startCodeList = (problemById?.startCode || []).map(code => ({
-        ...code,
-        value: code.language?.toLowerCase() || '',
-        label: code.language || ''
-    }));
+    // --- UPDATED THIS SECTION ---
+    const startCodeList = useMemo(() => (problemById?.startCode || []).map(sc => ({
+        ...sc,
+        // Use the helper function to get the correct language identifier
+        value: getMonacoLanguage(sc.language),
+        label: sc.language || ''
+    })), [problemById]);
 
     useEffect(() => {
-        dispatch(getUserProblemById(id));
+        if (id) {
+            dispatch(getUserProblemById(id));
+        }
     }, [dispatch, id]);
 
     useEffect(() => {
-        if (problemById?.startCode?.length > 0) {
-            const defaultLanguageValue = problemById.startCode[0].language?.toLowerCase() || '';
-            const defaultInitialCode = problemById.startCode[0].initialCode || '';
-            const data = loadEditorState(id);
-            if (!data[defaultLanguageValue] || !data[defaultLanguageValue].code) {
-                setLanguage(defaultLanguageValue);
-                setCode(defaultInitialCode);
+        if (startCodeList.length > 0 && !language) { // Run only if language isn't set yet
+            const defaultLangInfo = startCodeList[0];
+            const defaultLangValue = defaultLangInfo.value;
+            const defaultInitialCode = defaultLangInfo.initialCode;
+            const savedData = loadEditorState(id);
+            
+            if (savedData[defaultLangValue]?.code) {
+                setLanguage(defaultLangValue);
+                setCode(savedData[defaultLangValue].code);
             } else {
-                setLanguage(defaultLanguageValue);
-                setCode(data[defaultLanguageValue].code);
+                setLanguage(defaultLangValue);
+                setCode(defaultInitialCode);
             }
         }
-    }, [problemById, id]);
-
-    // This useEffect handles changes from localStorage after the initial load
-    useEffect(() => {
-        const data = loadEditorState(id);
-        if (language && data[language]) {
-            setCode(data[language].code);
-        } else {
-            const selectedCode = startCodeList.find(c => c.value === language);
-            if (selectedCode) {
-                setCode(selectedCode.initialCode);
-            }
-        }
-    }, [language, id, startCodeList]);
+    }, [startCodeList, id, language]);
 
     useEffect(() => {
         if (code && language) {
             saveEditorState(id, language, code);
         }
     }, [code, language, id]);
-
+    
     useEffect(() => {
         if (!editorCode) return;
         let results = Array.isArray(editorCode) ? editorCode : [editorCode];
@@ -82,7 +96,16 @@ const ProblemPage = () => {
     const handleLanguageChange = (e) => {
         const newLang = e.target.value;
         setLanguage(newLang);
-        // The logic to set code is now handled by the useEffect watching `language`
+        const savedData = loadEditorState(id);
+
+        if (savedData[newLang]?.code) {
+            setCode(savedData[newLang].code);
+        } else {
+            const selectedCodeInfo = startCodeList.find(c => c.value === newLang);
+            if (selectedCodeInfo) {
+                setCode(selectedCodeInfo.initialCode);
+            }
+        }
     };
 
     const handleRun = async () => {
@@ -109,7 +132,7 @@ const ProblemPage = () => {
         }
         setTestResults([]);
     };
-
+    
     return (
         <div data-theme="night" className="min-h-screen bg-base-100 text-base-content font-sans">
             <main className="p-4 lg:p-6 h-screen flex flex-col">
