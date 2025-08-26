@@ -5,7 +5,6 @@ const { getLanguageId, submitBatch, submitToken } = require("../utils/ProblemUti
 
 const createProblem = async (req, res) => {
     const { title, description, difficulty, tags, visibleTestCases, hiddenTestCases, startCode, referenceSolution } = req.body;
-    
     try {
         for(const {language, completeCode} of referenceSolution) {
             const languageId = getLanguageId(language);
@@ -175,6 +174,7 @@ const submittedProblem = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 module.exports = {
     createProblem,

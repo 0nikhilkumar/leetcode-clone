@@ -1,7 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
+import { useDispatch, useSelector } from "react-redux";
 import z from "zod";
+import { createProblem, updateProblem } from "../store/problemSlice";
 
 const TrashIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -17,7 +19,13 @@ const XIcon = () => (
 
 const availableTags = ["Array", "Hash Table", "Linked List", "Math", "String", "Sliding Window", "Binary Search", "Divide and Conquer", "Dynamic Programming", "Heap", "Stack", "Two Pointers", "Graph", "Tree"];
 
-const testCaseSchema = z.object({
+const visibleTestCaseSchema = z.object({
+    input: z.string().min(1, "Input is required"),
+    output: z.string().min(1, "Output is required"),
+    explanation: z.string().optional().default("")
+});
+
+const hiddenTestCaseSchema = z.object({
     input: z.string().min(1, "Input is required"),
     output: z.string().min(1, "Output is required"),
 });
@@ -34,30 +42,41 @@ const problemSchema = z.object({
     tags: z.array(z.string()).min(1, "At least one tag is required"),
     difficulty: z.enum(["Easy", "Medium", "Hard"]),
     testCases: z.object({
-        visible: z.array(testCaseSchema).min(1, "At least one visible test case is required"),
-        hidden: z.array(testCaseSchema).min(1, "At least one hidden test case is required"),
+        visible: z.array(visibleTestCaseSchema).min(1, "At least one visible test case is required"),
+        hidden: z.array(hiddenTestCaseSchema).min(1, "At least one hidden test case is required"),
     }),
     codeStubs: z.array(codeStubSchema).min(1, "At least one language stub is required"),
 });
 
 
-// --- CREATE PROBLEM MODAL COMPONENT ---
-const CreateProblemModal = ({ isOpen, onClose, onAddProblem }) => {
+const CreateProblemModal = ({ isOpen, onClose, onAddProblem, defaultValues, isEdit }) => {
     const [activeTab, setActiveTab] = useState('Details');
     const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
     const tagDropdownRef = useRef(null);
-
-    const { register, control, handleSubmit, formState: { errors }, watch, setValue } = useForm({
+    const dispatch = useDispatch();
+    const { loading } = useSelector((state) => state.problems);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { register, control, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm({
         resolver: zodResolver(problemSchema),
-        defaultValues: {
+        defaultValues: defaultValues || {
             title: '',
             description: '',
             tags: [],
-            difficulty: 'Easy',
-            testCases: { visible: [{ input: '', output: '', explanation: '' }], hidden: [{ input: '', output: '' }] },
-            codeStubs: [{ language: 'javascript', starterCode: 'function solve(params) {\n  // Write your code here\n}', referenceCode: '' }]
+            difficulty: '',
+            testCases: {
+                visible: [],
+                hidden: []
+            },
+            codeStubs: []
         }
     });
+
+    // Reset form when defaultValues change (for edit)
+    useEffect(() => {
+        if (defaultValues) {
+            reset(defaultValues);
+        }
+    }, [defaultValues, reset]);
 
     const { fields: visibleFields, append: appendVisible, remove: removeVisible } = useFieldArray({ control, name: "testCases.visible" });
     const { fields: hiddenFields, append: appendHidden, remove: removeHidden } = useFieldArray({ control, name: "testCases.hidden" });
@@ -87,30 +106,44 @@ const CreateProblemModal = ({ isOpen, onClose, onAddProblem }) => {
         setValue('tags', watch('tags').filter(tag => tag !== tagToRemove), { shouldValidate: true });
     };
 
-    const processSubmit = (data) => {
-        // Transform the form data to the desired output format
+    const processSubmit = async (data) => {
         const outputData = {
             title: data.title,
             description: data.description,
             difficulty: data.difficulty.toLowerCase(),
             tags: data.tags.map(tag => tag.toLowerCase()),
-            visibleTestCases: data.testCases.visible,
+            visibleTestCases: data.testCases.visible.map(tc => ({
+                input: tc.input,
+                output: tc.output,
+                explanation: tc.explanation ?? ''
+            })),
             hiddenTestCases: data.testCases.hidden,
             startCode: data.codeStubs.map(stub => ({
                 language: stub.language.charAt(0).toUpperCase() + stub.language.slice(1),
                 initialCode: stub.starterCode
             })),
             referenceSolution: data.codeStubs
-                .filter(stub => stub.referenceCode) // Only include if reference solution exists
+                .filter(stub => stub.referenceCode)
                 .map(stub => ({
                     language: stub.language.toLowerCase(),
                     completeCode: stub.referenceCode
                 }))
         };
-
-        console.log("Formatted Output Data:", outputData);
-        onAddProblem({ ...outputData, id: Date.now() });
-        onClose();
+        setIsSubmitting(true);
+        try {
+            if (isEdit && defaultValues && (defaultValues._id || defaultValues.id)) {
+                await dispatch(updateProblem({ id: defaultValues._id || defaultValues.id, data: outputData }));
+                onClose();
+            } else {
+                await dispatch(createProblem(outputData));
+                onAddProblem({ ...outputData, id: Date.now() });
+                onClose();
+            }
+        } catch (error) {
+            console.error("Failed to create/update problem:", error);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const onFormError = (errs) => {
@@ -129,7 +162,7 @@ const CreateProblemModal = ({ isOpen, onClose, onAddProblem }) => {
     return (
         <div className="modal modal-open">
             <form onSubmit={handleSubmit(processSubmit, onFormError)} className="modal-box w-11/12 max-w-5xl bg-gray-800 text-white">
-                <h3 className="font-bold text-2xl mb-4">Create New Problem</h3>
+                <h3 className="font-bold text-2xl mb-4">{isEdit ? 'Update Problem' : 'Create New Problem'}</h3>
 
                 <div className="tabs tabs-boxed mb-6 bg-gray-900">
                     <a className={`tab ${activeTab === 'Details' ? 'tab-active' : ''}`} onClick={() => setActiveTab('Details')}>Details</a>
@@ -224,11 +257,11 @@ const CreateProblemModal = ({ isOpen, onClose, onAddProblem }) => {
                                 {codeFields.map((field, index) => (
                                     <div key={field.id} className="p-4 bg-gray-900 rounded-md">
                                         <div className="flex justify-between items-center mb-3">
-                                            <select {...register(`codeStubs.${index}.language`)} className="select select-sm bg-gray-700">
+                                            <select {...register(`codeStubs.${index}.language`)} className="select select-sm bg-gray-700" defaultValue={field.language}>
                                                 <option value="javascript">JavaScript</option>
                                                 <option value="python">Python</option>
                                                 <option value="java">Java</option>
-                                                <option value="cpp">C++</option>
+                                                <option value="c++">C++</option>
                                             </select>
                                             <button type="button" className="btn btn-sm btn-error btn-outline" onClick={() => removeCode(index)}>Remove</button>
                                         </div>
@@ -246,14 +279,16 @@ const CreateProblemModal = ({ isOpen, onClose, onAddProblem }) => {
                                     </div>
                                 ))}
                             </div>
-                            <button type="button" className="btn btn-sm btn-outline btn-info mt-3" onClick={() => appendCode({ language: 'java', starterCode: 'class Solution {\n    public void solve() {\n        // Write your code here\n    }\n}', referenceCode: '' })}>Add Language</button>
+                            <button type="button" className="btn btn-sm btn-outline btn-info mt-3" onClick={() => appendCode({ language: 'java', starterCode: '', referenceCode: '' })}>Add Language</button>
                         </div>
                     )}
                 </div>
 
                 <div className="modal-action mt-8">
                     <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-                    <button type="submit" className="btn btn-primary">Save Problem</button>
+                    <button type="submit" disabled={isSubmitting} className="btn btn-primary w-36">
+                        {isSubmitting ? <span className="loading loading-spinner"></span> : (isEdit ? 'Update Problem' : 'Create Problem')}
+                    </button>
                 </div>
             </form>
         </div>

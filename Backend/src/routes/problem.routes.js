@@ -8,6 +8,7 @@ const router = express.Router();
 router.route("/create").post(adminMiddleware, submitCodeRateLimiter, createProblem);
 router.route("/update/:id").put(adminMiddleware, submitCodeRateLimiter, updateProblem);
 router.route("/delete/:id").delete(adminMiddleware, deleteProblem);
+router.route("/getProblemById/:id").get(adminMiddleware, getProblemById);
 
 router.route("/getAllProblem").get(getAllProblems);
 router.route("/problemById/:id").get(authMiddleware, getProblemById);

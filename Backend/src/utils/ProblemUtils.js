@@ -10,11 +10,7 @@ const getLanguageId = (lang) => {
     return language[lang.toLowerCase()];
 };
 
-const waiting = async (timer) => {
-    setTimeout(()=> {
-        return 1;
-    }, timer);
-};
+const waiting = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const submitBatch = async (submissions) => {
     const options = {

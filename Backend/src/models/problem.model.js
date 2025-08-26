@@ -17,7 +17,7 @@ const problemSchema = new mongoose.Schema({
     tags: {
         type: [{
             type: String,
-            enum: ["array", "string", "linked list", "tree", "graph", "dynamic programming", "greedy", "backtracking"],
+            enum: ["array", "string", "linked list", "tree", "graph", "dynamic programming", "greedy", "backtracking", "two pointers"],
             required: true,
         }],
         required: true

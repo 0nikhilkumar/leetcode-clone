@@ -1,23 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import CreateProblemModal from '../components/CreateProblemModel';
 import { useDispatch, useSelector } from 'react-redux';
-import { allProblems } from '../store/problemSlice';
+import { allProblems, deleteProblem, getProblemById, updateProblem } from '../store/problemSlice';
+import ConfirmationModal from '../components/ConfirmationModal';
 
-// Mock data for the problems. In a real application, you would fetch this from an API.
-const problems = [
-    { id: 1, title: "Two Sum", tags: ["Array", "Hash Table"], difficulty: "Easy" },
-    { id: 2, title: "Add Two Numbers", tags: ["Linked List", "Math"], difficulty: "Medium" },
-    { id: 3, title: "Longest Substring Without Repeating Characters", tags: ["Hash Table", "String", "Sliding Window"], difficulty: "Medium" },
-    { id: 4, title: "Median of Two Sorted Arrays", tags: ["Array", "Binary Search", "Divide and Conquer"], difficulty: "Hard" },
-    { id: 5, title: "Valid Parentheses", tags: ["String", "Stack"], difficulty: "Easy" },
-    { id: 6, title: "Merge K Sorted Lists", tags: ["Linked List", "Heap", "Divide and Conquer"], difficulty: "Hard" },
-    { id: 7, title: "3Sum", tags: ["Array", "Two Pointers"], difficulty: "Medium" },
-    { id: 8, title: "Container With Most Water", tags: ["Array", "Two Pointers"], difficulty: "Medium" },
-    { id: 9, title: "Palindrome Number", tags: ["Math"], difficulty: "Easy" },
-    { id: 10, title: "Regular Expression Matching", tags: ["String", "Dynamic Programming", "Recursion"], difficulty: "Hard" },
-];
 
-// Helper function to determine the badge color based on difficulty
 const getDifficultyClass = (difficulty) => {
     switch (difficulty) {
         case 'Easy':
@@ -33,22 +20,91 @@ const getDifficultyClass = (difficulty) => {
 
 const AdminProblemsPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const { problems: allProblems2, loading } = useSelector((state) => state.problems);
+    const { problems: allProblems2, loading, problemById } = useSelector((state) => state.problems);
+    const [editId, setEditId] = useState(null);
+    const [editDefaultValues, setEditDefaultValues] = useState(null);
     const dispatch = useDispatch();
-    console.log(allProblems2);
     const [problemss, setProblemss] = useState([]);
     const handleAddProblem = (newProblem) => {
         setProblemss([...problemss, newProblem]);
         console.log("New problem added:", newProblem);
     };
 
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [problemToDelete, setProblemToDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+
+    const handleDeleteProblem = (id) => {
+        setProblemToDelete(id);
+        setIsConfirmModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        setDeleting(true);
+        await dispatch(deleteProblem(problemToDelete));
+        await dispatch(allProblems());
+        setDeleting(false);
+        setIsConfirmModalOpen(false);
+        setProblemToDelete(null);
+    };
+
+    const handleCancelDelete = () => {
+        if (!deleting) {
+            setIsConfirmModalOpen(false);
+            setProblemToDelete(null);
+        }
+    };
+
     useEffect(() => {
         setProblemss(allProblems2);
     }, [allProblems2]);
 
+    // When admin clicks edit, fetch problem and open modal
+    const handleEditProblem = (id) => {
+        setEditId(id);
+        dispatch(getProblemById(id));
+        setIsModalOpen(true);
+    };
+
+    // When problemById changes, set modal default values
     useEffect(() => {
-        dispatch(allProblems())
+        if (editId && problemById && (problemById._id === editId || problemById.id === editId)) {
+            setEditDefaultValues({
+                id: problemById._id || problemById.id,
+                title: problemById.title || '',
+                description: problemById.description || '',
+                tags: problemById.tags || [],
+                difficulty: problemById.difficulty ? problemById.difficulty.charAt(0).toUpperCase() + problemById.difficulty.slice(1).toLowerCase() : '',
+                testCases: {
+                    visible: problemById.visibleTestCases || [],
+                    hidden: problemById.hiddenTestCases || []
+                },
+                codeStubs: (problemById.startCode || []).map((stub, i) => ({
+                    language: stub.language ? stub.language.toLowerCase() : '',
+                    starterCode: stub.initialCode || '',
+                    referenceCode: (problemById.referenceSolution && problemById.referenceSolution[i]?.completeCode) || ''
+                }))
+            });
+        }
+    }, [editId, problemById]);
+
+    useEffect(() => {
+        dispatch(allProblems());
     }, [dispatch]);
+
+    // Helper: open modal for create (blank)
+    const handleOpenCreateModal = () => {
+        setEditId(null);
+        setEditDefaultValues({
+            title: '',
+            description: '',
+            tags: [],
+            difficulty: '',
+            testCases: { visible: [], hidden: [] },
+            codeStubs: []
+        });
+        setIsModalOpen(true);
+    };
 
     return (
         <div className="min-h-screen bg-gray-900 text-white p-4 sm:p-6 lg:p-8">
@@ -56,7 +112,7 @@ const AdminProblemsPage = () => {
                 {/* Header Section */}
                 <header className="flex flex-col sm:flex-row justify-between items-center mb-8">
                     <h1 className="text-3xl font-bold mb-4 sm:mb-0">All LeetCode Problems</h1>
-                    <button className="btn btn-primary w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
+                    <button className="btn btn-primary w-full sm:w-auto" onClick={handleOpenCreateModal}>
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
@@ -77,7 +133,6 @@ const AdminProblemsPage = () => {
                                 <th className="p-4 text-center">Actions</th>
                             </tr>
                         </thead>
-                        {/* Table Body */}
                         {
                             loading ? (
                                 <tbody>
@@ -91,7 +146,7 @@ const AdminProblemsPage = () => {
                             ) : (
                                 <tbody>
                                     {(problemss || []).map((problem, index) => (
-                                        <tr key={problem._id} className="hover:bg-gray-700 transition-colors duration-200">
+                                        <tr key={problem?._id || index} className="hover:bg-gray-700 transition-colors duration-200">
                                             <td className="p-4 font-medium">{index + 1}</td>
                                             <td className="p-4 font-semibold">{problem.title}</td>
                                             <td className="p-4">
@@ -109,8 +164,8 @@ const AdminProblemsPage = () => {
                                                 </span>
                                             </td>
                                             <td className="p-4 text-center">
-                                                <button className="btn btn-ghost btn-xs">Edit</button>
-                                                <button className="btn btn-ghost btn-xs text-red-500">Delete</button>
+                                                <button className="btn btn-ghost btn-xs" onClick={() => handleEditProblem(problem._id || problem.id)}>Edit</button>
+                                                <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleDeleteProblem(problem._id)}>Delete</button>
                                             </td>
                                         </tr>
                                     ))}
@@ -122,8 +177,26 @@ const AdminProblemsPage = () => {
             </div>
             <CreateProblemModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => { setIsModalOpen(false); setEditId(null); setEditDefaultValues(null); }}
                 onAddProblem={handleAddProblem}
+                defaultValues={editDefaultValues}
+                isEdit={!!editId}
+            />
+            {/* Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={isConfirmModalOpen}
+                onClose={handleCancelDelete}
+                onConfirm={handleConfirmDelete}
+                message="Are you sure you want to delete this problem? This action cannot be undone."
+                confirmDisabled={deleting}
+                cancelDisabled={deleting}
+                confirmButton={deleting ? (
+                    <button className="btn btn-error btn-disabled">
+                        <span className="loading loading-spinner loading-sm mr-2"></span> Deleting...
+                    </button>
+                ) : (
+                    <button className="btn btn-error">Delete</button>
+                )}
             />
         </div>
     );

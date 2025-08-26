@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { allProblems } from '../store/problemSlice';
+import { useNavigate } from 'react-router';
 
 // Mock data simulating problems fetched from a backend
 const mockProblems = [
@@ -49,6 +50,7 @@ function HomePage() {
   const [selectedTags, setSelectedTags] = useState([]);
   // Added state for the expandable tags section
   const [isTagsExpanded, setIsTagsExpanded] = useState(false);
+  const navigate = useNavigate();
 
   const dispatch = useDispatch();
   const { problems: allProblem2, loading } = useSelector(state => state.problems);
@@ -215,7 +217,7 @@ function HomePage() {
                       filteredProblems.map((problem, index) => (
                         <tr key={problem._id || problem.id} className="hover">
                           <td className="p-4 font-medium">{index + 1}</td>
-                          <td className="p-4 font-semibold text-primary-content hover:text-primary transition-colors cursor-pointer">
+                          <td className="p-4 font-semibold text-primary-content hover:text-primary transition-colors cursor-pointer" onClick={()=> navigate(`/problem/${problem._id}`)}>
                             {problem.title}
                           </td>
                           <td className="p-4">
