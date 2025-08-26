@@ -55,7 +55,6 @@ function HomePage() {
   const dispatch = useDispatch();
   const { problems: allProblem2, loading } = useSelector(state => state.problems);
   const { user } = useSelector(state => state.auth);
-  console.log(user);
 
   const allTags = useMemo(() => {
     const tagsSet = new Set();
