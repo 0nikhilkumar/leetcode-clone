@@ -3,6 +3,7 @@ const validate = require("../utils/validator");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const redisClient = require("../config/redisClient");
+const { generateAccessToken, generateRefreshToken } = require("../utils/generateTokens");
 
 const register = async (req, res) => {
     try {
@@ -59,9 +60,24 @@ const login = async (req, res) => {
             email: existsUser.email,
             role: existsUser.role
         };
+        
 
-        const token = jwt.sign({_id: existsUser._id, email, role: existsUser.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
-        res.cookie("token", token, { maxAge: 60 * 60 * 1000, httpOnly: true, secure: true, sameSite: 'none', path: '/' });
+        const accessToken = generateAccessToken(reply);
+
+        const refreshToken = generateRefreshToken(reply._id);
+
+        const baseConfig = {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            path: '/',
+        };
+
+        // const token = jwt.sign({_id: existsUser._id, email, role: existsUser.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
+        // res.cookie("token", token, { maxAge: 60 * 60 * 1000, httpOnly: true, secure: true, sameSite: 'none', path: '/' });
+
+        res.cookie("accessToken", accessToken, { ...baseConfig, maxAge: 15 * 60 * 1000 }); // 15 minutes
+        res.cookie("refreshToken", refreshToken, { ...baseConfig, maxAge: 7 * 24 * 60 * 60 * 1000 }); // 7 days
 
         res.status(200).json({ user: reply, message: "Login successful" });
     } catch (error) {
@@ -70,16 +86,33 @@ const login = async (req, res) => {
     }
 };
 
+// const logout = async (req, res) => {
+//     try {
+//         const { token } = req.cookies;
+//         const payload = jwt.decode(token);
+
+//         await redisClient.set(`token:${token}`, 'Blocked');
+//         await redisClient.expireAt(`token:${token}`, payload.exp);
+
+//         res.clearCookie("token");
+//         res.status(200).send("Logout successful");
+//     } catch (error) {
+//         console.error("Error during logout:", error);
+//         res.status(500).json({ message: "Internal server error" });
+//     }
+// };
+
 const logout = async (req, res) => {
     try {
-        const { token } = req.cookies;
-        const payload = jwt.decode(token);
+        const { accessToken, refreshToken } = req.cookies;
+        const payload = jwt.decode(refreshToken);
 
-        await redisClient.set(`token:${token}`, 'Blocked');
-        await redisClient.expireAt(`token:${token}`, payload.exp);
+        await redisClient.set(`refreshToken:${refreshToken}`, 'Blocked');
+        await redisClient.expireAt(`refreshToken:${refreshToken}`, payload.exp);
 
-        res.clearCookie("token");
-        res.status(200).send("Logout successful");
+        res.clearCookie("accessToken", { path: '/' });
+        res.clearCookie("refreshToken", { path: '/' });
+        return res.status(200).send("Logout successful");
     } catch (error) {
         console.error("Error during logout:", error);
         res.status(500).json({ message: "Internal server error" });

@@ -14,7 +14,7 @@ app.use(cors({
     origin: process.env.CORS_ORIGIN,
     credentials: true,
     optionsSuccessStatus: 200,
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type']
 }));
 app.use(cookieParser());
 
