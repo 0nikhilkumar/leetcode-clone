@@ -129,6 +129,7 @@ const getAllProblems = async (req, res) => {
 
 const getProblemById = async (req, res) => {
     const { id } = req.params;
+
     try {
         if(!id) return res.status(400).send("Problem ID is required");
 
@@ -136,7 +137,7 @@ const getProblemById = async (req, res) => {
 
         if(!problem) return res.status(404).send("Problem not found");
 
-        return res.status(200).json({problem});
+        return res.status(200).json(problem);
     } catch (error) {
         console.error("Error fetching problem:", error);
         res.status(500).json({ message: "Internal server error" });
