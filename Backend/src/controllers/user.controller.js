@@ -110,8 +110,10 @@ const logout = async (req, res) => {
         await redisClient.set(`refreshToken:${refreshToken}`, 'Blocked');
         await redisClient.expireAt(`refreshToken:${refreshToken}`, payload.exp);
 
-        res.clearCookie("accessToken", { path: '/' });
-        res.clearCookie("refreshToken", { path: '/' });
+        const baseConfig = { httpOnly: true, secure: true, sameSite: 'none', path: '/' };
+
+        res.clearCookie("accessToken", { ...baseConfig });
+        res.clearCookie("refreshToken", { ...baseConfig });
         return res.status(200).send("Logout successful");
     } catch (error) {
         console.error("Error during logout:", error);
